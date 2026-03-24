@@ -1,0 +1,38 @@
+# Federated Learning
+flwr==1.7.0
+opacus==1.4.0
+
+# ML / NLP
+torch==2.2.0
+scikit-learn==1.4.0
+transformers==4.38.0
+datasets==2.18.0
+nltk==3.8.1
+numpy==1.26.4
+pandas==2.2.1
+
+# GenAI
+google-generativeai==0.4.1
+langchain==0.1.12
+langchain-google-genai==0.0.11
+
+# API
+fastapi==0.110.0
+uvicorn==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.3
+
+# Dashboard
+streamlit==1.32.2
+plotly==5.19.0
+
+# IPFS
+requests==2.31.0
+
+# MLOps
+mlflow==2.11.1
+dvc==3.48.4
+
+# Utils
+python-dotenv==1.0.1
+loguru==0.7.2

@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.pt
+*.pkl
+data/
+mlflow_tracking/
+.env
+*.egg-info/
+.idea/
+.vscode/
+check.py
+check2.py
