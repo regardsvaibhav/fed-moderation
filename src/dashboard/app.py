@@ -22,7 +22,7 @@ import streamlit as st
 
 from src.config import DATA_PROCESSED_PATH, API_PORT
 
-API_BASE = f"http://127.0.0.1:{API_PORT}"
+API_BASE = os.getenv("API_BASE", f"http://127.0.0.1:{API_PORT}")
 
 # ── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -124,18 +124,62 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
 def call_api(text: str) -> dict | None:
     try:
         r = requests.post(
             f"{API_BASE}/moderate",
             json={"text": text, "include_explanation": True},
-            timeout=10
+            timeout=5
         )
         return r.json()
+    except:
+        # Run inference directly without API (HuggingFace mode)
+        return run_local_inference(text)
+
+def run_local_inference(text: str) -> dict:
+    """Fallback: run model directly when API not available."""
+    import pickle, re, torch
+    from src.federated.model import create_model
+    from src.genai.explainer import ModerationExplainer
+
+    try:
+        vocab = pickle.load(open('data/processed/vocab.pkl', 'rb'))
+        model = create_model(len(vocab))
+        model.load_state_dict(torch.load('data/processed/centralized_model.pt', map_location='cpu'))
+        model.eval()
+
+        text_clean = re.sub(r'http\S+|@\w+|#\w+|[^a-zA-Z\s]', ' ', text.lower())
+        tokens = text_clean.split()
+        indices = [vocab.get(t, vocab.get('<UNK>', 1)) for t in tokens]
+        if len(indices) < 128:
+            indices += [0] * (128 - len(indices))
+        x = torch.tensor([indices[:128]], dtype=torch.long)
+
+        with torch.no_grad():
+            logits = model(x)
+            probs = torch.softmax(logits, dim=1)[0]
+            pred = probs.argmax().item()
+            conf = probs[pred].item()
+
+        exp = ModerationExplainer().explain(text, pred, conf)
+        return {
+            "text": text,
+            "decision": "TOXIC" if pred == 1 else "SAFE",
+            "confidence": round(conf, 4),
+            "epsilon": 3.8,
+            "inference_ms": 0,
+            "explanation": exp
+        }
     except Exception as e:
-        st.error(f"API error: {e}. Make sure `uvicorn src.api.main:app` is running.")
-        return None
+        return {
+            "text": text,
+            "decision": "DEMO",
+            "confidence": 0.5,
+            "epsilon": 3.8,
+            "inference_ms": 0,
+            "explanation": {"decision": "DEMO", "explanation": f"Model not loaded: {e}",
+                          "severity": "NONE", "flagged_phrases": [], "source": "error"}
+        }
 
 def load_experiment_results() -> list:
     path = os.path.join(DATA_PROCESSED_PATH, 'experiment_results.json')
